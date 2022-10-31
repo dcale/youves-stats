@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<title>youves Introducer Leaderboard</title>
+    <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+    <link href="https://unpkg.com/nes.css/css/nes.css" rel="stylesheet" />
+    <style>
+        body {
+            padding: 0 2rem;
+            margin: 0 2rem;
+        }
+        
+        #leaderboard {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="main-content">
+
+        <h1><i class="nes-icon trophy"></i> youves introducer leaderboard</h1>
+        <div>
+            <table id="leaderboard" class="nes-table is-bordered is-centered">
+            </table>
+        </div>
+        <div class="nes-container with-title is-centered">
+            <p class="title">About</p>
+            <p>Made with <i class="nes-icon heart"></i> using <a href="https://app.youves.com/?ref=tz1hczri1u8Nv3TqqcwH4vvVL4FRJupGVPNW">youves</a>, <a href="https://tzkt.io/">TzKT</a> and <a href="https://nostalgic-css.github.io/NES.css/">NES.css</a></p>
+            <p>To support me use my <a href="https://app.youves.com/?ref=tz1hczri1u8Nv3TqqcwH4vvVL4FRJupGVPNW">youves ref link</a>. Happy minting!</p>
+            <p><i class="nes-charmander -right"></i></p>
+        </div>
+    </div>
+</body>
+
+<script>
+const TZKT_ENDPOINT = "https://api.tzkt.io"
+
+const UBTC_TEZ_ENGINE = "KT1CP1C8afHqdNfBsSE3ggQhzM2iMHd4cRyt"
+const UBTC_SIRS_ENGINE = "KT1G6RzVX25YnoU55Xb7Vve3zvuZKmouf24a"
+const UUSD_TEZ_ENGINE = "KT1DHndgk8ah1MLfciDnCV2zPJrVbnnAH9fd"
+const UUSD_USDT_ENGINE = "KT1JmfujyCYTw5krfu9bSn7YbLYuz2VbNaje"
+const UUSD_TZBTC_ENGINE = "KT1V9Rsc4ES3eeQTr4gEfJmNhVbeHrAZmMgC"
+const UUSD_SIRS_ENGINE = "KT1F1JMgh6SfqBCK6T6o7ggRTdeTLw91KKks"
+
+const engines = [
+    UBTC_TEZ_ENGINE,
+	UBTC_SIRS_ENGINE,
+	UUSD_TEZ_ENGINE,
+	UUSD_USDT_ENGINE,
+	UUSD_TZBTC_ENGINE,
+	UUSD_SIRS_ENGINE
+]
+
+const STAKE_MANAGER_BIGMAP_ID = 312706
+
+const YOU_STAKE_BIGMAP_ID = 7717
+
+const generateLeaderboard = (data) => {
+    const table = document.getElementById("leaderboard")
+    
+    const thead = table.createTHead()
+    const headRow = thead.insertRow()
+    const rankTh = document.createElement("th")
+    rankTh.appendChild(document.createTextNode("#"))
+    headRow.appendChild(rankTh)
+
+    for (const key in data[0]){
+        const th = document.createElement("th")
+        const text = document.createTextNode(key)
+        th.appendChild(text)
+        headRow.appendChild(th)
+    }
+
+    const tbody = table.createTBody()
+    for (const [index, entry]  of data.entries()){
+        const bodyRow = tbody.insertRow()
+        bodyRow.insertCell().appendChild(document.createTextNode(index+1))
+        
+        for (const key in entry){
+            const cell = bodyRow.insertCell()
+            const text = document.createTextNode(entry[key])
+            cell.appendChild(text)
+        }
+    }
+}
+
+const introducerStakes = {}
+const introducerCount = {}
+Promise.all(
+    engines.map(
+        engine => fetch(`${TZKT_ENDPOINT}/v1/bigmaps/${STAKE_MANAGER_BIGMAP_ID}/keys/${engine}`)
+        .then(response => response.json())
+        .then(stakeFactor => fetch(`${TZKT_ENDPOINT}/v1/bigmaps?contract=${engine}&path=vault_contexts`)
+            .then(response => response.json())
+            .then(data => data[0]['ptr'])
+            .then(bigmapId => fetch(`${TZKT_ENDPOINT}/v1/bigmaps/${bigmapId}/keys?limit=10000&value.introducer.ne=null`))
+            .then(response => response.json())
+            .then(data => data.map(value => {
+                const introducer = value['value']['introducer']
+                introducerStakes[introducer] = introducerStakes[introducer] || 0
+                introducerStakes[introducer] += parseFloat(stakeFactor['value']/10**18) * parseFloat(value['value']['minted'])/10**12
+                introducerCount[introducer] = ++introducerCount[introducer] || 1
+            }))
+        )
+    )
+)
+.then(
+    _ => {
+        const leaderboard = []
+        Object.keys(introducerStakes).map(introducer => leaderboard.push({address:introducer, count:introducerCount[introducer], 'stake': introducerStakes[introducer]}))
+        leaderboard.sort((a, b) => b.stake - a.stake)
+        generateLeaderboard(leaderboard)
+    }
+)
+</script>
+</html>
